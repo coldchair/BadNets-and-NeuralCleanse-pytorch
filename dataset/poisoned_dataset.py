@@ -7,17 +7,23 @@ import os
 
 class TriggerHandler(object):
 
-    def __init__(self, trigger_path, trigger_size, trigger_label, img_width, img_height):
+    def __init__(self, trigger_path, trigger_size, trigger_label, img_width, img_height, trigger_label_plus):
         self.trigger_img = Image.open(trigger_path).convert('RGB')
         self.trigger_size = trigger_size
         self.trigger_img = self.trigger_img.resize((trigger_size, trigger_size))        
         self.trigger_label = trigger_label
         self.img_width = img_width
         self.img_height = img_height
+        self.trigger_label_plus = trigger_label_plus
 
     def put_trigger(self, img):
         img.paste(self.trigger_img, (self.img_width - self.trigger_size, self.img_height - self.trigger_size))
         return img
+    
+    def get_drugged_label(self, label):
+        if (label == self.trigger_label):
+            return (label + self.trigger_label_plus) % 10
+        return label
 
 class CIFAR10Poison(CIFAR10):
 
@@ -34,7 +40,7 @@ class CIFAR10Poison(CIFAR10):
 
         self.width, self.height, self.channels = self.__shape_info__()
 
-        self.trigger_handler = TriggerHandler( args.trigger_path, args.trigger_size, args.trigger_label, self.width, self.height)
+        self.trigger_handler = TriggerHandler( args.trigger_path, args.trigger_size, args.trigger_label, self.width, self.height, args.trigger_label_plus)
         self.poisoning_rate = args.poisoning_rate if train else 1.0
         indices = range(len(self.targets))
         self.poi_indices = random.sample(indices, k=int(len(indices) * self.poisoning_rate))
@@ -50,7 +56,7 @@ class CIFAR10Poison(CIFAR10):
         # NOTE: According to the threat model, the trigger should be put on the image before transform.
         # (The attacker can only poison the dataset)
         if index in self.poi_indices:
-            target = self.trigger_handler.trigger_label
+            target = self.trigger_handler.get_drugged_label(target)
             img = self.trigger_handler.put_trigger(img)
 
         if self.transform is not None:
@@ -77,7 +83,7 @@ class MNISTPoison(MNIST):
         self.width, self.height = self.__shape_info__()
         self.channels = 1
 
-        self.trigger_handler = TriggerHandler( args.trigger_path, args.trigger_size, args.trigger_label, self.width, self.height)
+        self.trigger_handler = TriggerHandler( args.trigger_path, args.trigger_size, args.trigger_label, self.width, self.height, args.trigger_label_plus)
         self.poisoning_rate = args.poisoning_rate if train else 1.0
         indices = range(len(self.targets))
         self.poi_indices = random.sample(indices, k=int(len(indices) * self.poisoning_rate))
@@ -100,8 +106,8 @@ class MNISTPoison(MNIST):
         img = Image.fromarray(img.numpy(), mode="L")
         # NOTE: According to the threat model, the trigger should be put on the image before transform.
         # (The attacker can only poison the dataset)
-        if index in self.poi_indices:
-            target = self.trigger_handler.trigger_label
+        if index in self.poi_indices and target == self.trigger_handler.trigger_label:
+            target = self.trigger_handler.get_drugged_label(target)
             img = self.trigger_handler.put_trigger(img)
 
         if self.transform is not None:

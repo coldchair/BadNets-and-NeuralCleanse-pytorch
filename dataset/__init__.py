@@ -31,6 +31,10 @@ def build_poisoned_training_set(is_train, args):
 
     return trainset, nb_classes
 
+def build_clean_training_set(is_train, args):
+    transform, detransform = build_transform(args.dataset)
+    return datasets.MNIST(args.data_path, train=is_train, download=True, transform=transform)
+
 
 def build_testset(is_train, args):
     transform, detransform = build_transform(args.dataset)
